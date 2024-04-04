@@ -4,12 +4,12 @@
 import os, sys, shutil
 
 from PIL import Image
-from PyQt6.QtGui import QIcon, QImage, QPixmap
-from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon, QImage, QPixmap, QAction
+from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton,
     QMainWindow, QHBoxLayout, QGridLayout, QVBoxLayout,
-    QFileDialog, QSlider
+    QFileDialog, QSlider, QMenu
 )
 
 
@@ -17,20 +17,27 @@ class MainWindow(QMainWindow):
     def __init__(self):                                 # -- Initiates the application
         super().__init__()
         self.currentImage: str = ""
-        self.tempImage: str = ""
-        self.blackWhiteActive = False
+        self.tempEditedImage: str = ""
+        self.tempUneditedImage: str = ""
+        self.imageEdited: bool = False
+        self.blackWhiteActive: bool = False
+        self.currentMouseX: int = 0
+        self.currentMouseY: int = 0
 
         self.setWindowTitle("Image Editor")
         self.setFixedSize(600, 800)
-
         self.initWidget()
         self.initLayout()
+        self.filterWidgetLayout()
         self.initConfigWidgets()
         self.initConfigConnections()
         self.initStyleSheets()
         self.widgetToolTips()
-
         self.setCentralWidget(self.mainContainer)
+        self.initFilterMenu()
+
+        self.labelWidth: int = self.imageLabel.width()
+        self.labelHeight: int = self.imageLabel.height()
 
     def initWidget(self) -> None:                       # -- Initiates main window widgets
         self.mainContainer: QWidget = QWidget()                             # - QWidgets
@@ -41,13 +48,11 @@ class MainWindow(QMainWindow):
         # Colapsed Menu Buttons
         self.colapedMenuBtn: QWidget = QPushButton()                        # - QPushButtons
         self.colapsedLoadImageBtn: QWidget = QPushButton()
-        self.colapsedBlackWhiteBtn: QWidget = QPushButton()
-
+        
         # Expanded menu Buttons
         self.expandedMenuBtn: QWidget = QPushButton("Colapse")
         self.expandedLoadImageBtn: QWidget = QPushButton("Load Image")
-        self.expandedBlackWhiteBtn: QWidget = QPushButton("Black/White")
-
+        
         #self.expandedBlackWhiteSlide: QWidget = QSlider(Qt.Orientation.Horizontal)                   # - QSliders
 
         self.imageLabel: QWidget = QLabel()                                 # - QLabels
@@ -59,12 +64,10 @@ class MainWindow(QMainWindow):
         self.mainApplication.layout = QVBoxLayout()
 
         self.colapsedMenu.layout.addWidget(self.colapedMenuBtn, 0, 0, Qt.AlignmentFlag.AlignLeft)
-        self.colapsedMenu.layout.addWidget(self.colapsedLoadImageBtn, 1, 0, Qt.AlignmentFlag.AlignLeft)
-        self.colapsedMenu.layout.addWidget(self.colapsedBlackWhiteBtn, 2, 0, Qt.AlignmentFlag.AlignLeft)
+        self.colapsedMenu.layout.addWidget(self.colapsedLoadImageBtn, 1, 0, Qt.AlignmentFlag.AlignLeft)   
 
         self.expandedMenu.layout.addWidget(self.expandedMenuBtn, 0, 0, Qt.AlignmentFlag.AlignLeft)
-        self.expandedMenu.layout.addWidget(self.expandedLoadImageBtn, 1, 0, Qt.AlignmentFlag.AlignLeft)
-        self.expandedMenu.layout.addWidget(self.expandedBlackWhiteBtn, 2, 0, Qt.AlignmentFlag.AlignLeft)
+        self.expandedMenu.layout.addWidget(self.expandedLoadImageBtn, 1, 0, Qt.AlignmentFlag.AlignLeft) 
 
         self.mainApplication.layout.addWidget(self.imageLabel, Qt.AlignmentFlag.AlignCenter)
 
@@ -89,11 +92,14 @@ class MainWindow(QMainWindow):
 
         self.colapedMenuBtn.setIcon(QIcon(os.path.join("icons", "colapsed-menu.png")))              # - Setting Icons
         self.colapsedLoadImageBtn.setIcon(QIcon(os.path.join("icons", "save-icon.png")))
-        self.colapsedBlackWhiteBtn.setIcon(QIcon(os.path.join("icons", "black-white-icon.png")))
-
+        self.colapsedFiltersBtn.setIcon(QIcon(os.path.join("icons", "filters-icon.png")))
         self.expandedMenuBtn.setIcon(QIcon(os.path.join("icons", "expanded-menu.png")))
         self.expandedLoadImageBtn.setIcon(QIcon(os.path.join("icons", "save-icon.png")))
         self.expandedBlackWhiteBtn.setIcon(QIcon(os.path.join("icons", "black-white-icon.png")))
+        self.expandedFiltersBtn.setIcon(QIcon(os.path.join("icons", "filters-icon.png")))
+        self.expandedSmoothBtn.setIcon(QIcon(os.path.join("icons", "smooth-filter.png")))
+        self.expandedSharpenBtn.setIcon(QIcon(os.path.join("icons", "sharpen-icon.png")))
+        self.expandedEmbossBtn.setIcon(QIcon(os.path.join("icons", "emboss-icon.png")))
 
         self.mainApplication.setMaximumHeight(self.height())                                        # - Max Width/Height
         self.colapsedMenu.setMaximumWidth(40)
@@ -105,19 +111,55 @@ class MainWindow(QMainWindow):
         self.expandedMenuBtn.clicked.connect(self.colapseSideMenu)
         self.colapsedLoadImageBtn.clicked.connect(self.openImageDialog)
         self.expandedLoadImageBtn.clicked.connect(self.openImageDialog)
-        self.colapsedBlackWhiteBtn.clicked.connect(self.blackAndWhite)
         self.expandedBlackWhiteBtn.clicked.connect(self.blackAndWhite)
+        self.colapsedFiltersBtn.clicked.connect(lambda: self.openMenu('filter'))
 
     def initStyleSheets(self) -> None:                  # -- Applies css stylesheets/incode styles to applicaiton
         self.colapsedMenu.setStyleSheet("background-color: darkgrey;")
         self.expandedMenu.setStyleSheet("background-color: darkgrey;")
         self.mainApplication.setStyleSheet("background-color: black; color: white;")
+        self.setStyleSheet("background-color: black;")
 
     def widgetToolTips(self) -> None:                   # -- Sets up widget hover tool tips
         self.colapedMenuBtn.setToolTip("Expand Menu")
         self.expandedMenuBtn.setToolTip("Colapse Menu")
         self.colapsedLoadImageBtn.setToolTip("Load Image")
         self.expandedLoadImageBtn.setToolTip("Load Image")  
+        self.colapsedFiltersBtn.setToolTip("Filters")
+        self.expandedBlackWhiteBtn.setToolTip("Black/White")
+        self.expandedSmoothBtn.setToolTip("Smooth")
+        self.expandedSharpenBtn.setToolTip("Sharpen")
+        self.expandedEmbossBtn.setToolTip("Emboss")
+
+    def filterWidgetLayout(self) -> None:               # -- Applies Layouts for the filterWidgets
+        filtersLayout = QVBoxLayout()
+        headerlayout = QHBoxLayout()
+        rowOneLayout = QHBoxLayout()
+        rowTwoLayout = QHBoxLayout()
+
+        self.colapsedFiltersBtn: QWidget = QPushButton()
+        self.expandedFiltersBtn: QWidget = QPushButton("        Filters")
+        self.expandedBlackWhiteBtn: QWidget = QPushButton()
+        self.expandedSmoothBtn: QWidget = QPushButton() 
+        self.expandedSharpenBtn: QWidget = QPushButton()
+        self.expandedEmbossBtn: QWidget = QPushButton()
+
+        headerlayout.addWidget(self.expandedFiltersBtn)
+        rowOneLayout.addWidget(self.expandedBlackWhiteBtn)
+        rowOneLayout.addWidget(self.expandedSmoothBtn)
+        rowOneLayout.addWidget(self.expandedSharpenBtn)
+        rowOneLayout.addWidget(self.expandedEmbossBtn)
+
+        
+
+        filtersLayout.addLayout(headerlayout)
+        filtersLayout.addLayout(rowOneLayout)
+
+        self.colapsedMenu.layout.addWidget(self.colapsedFiltersBtn, 2, 0, Qt.AlignmentFlag.AlignLeft)
+        self.expandedMenu.layout.addLayout(filtersLayout, 2, 0, Qt.AlignmentFlag.AlignLeft)
+
+        self.expandedBlackWhiteBtn.setMaximumSize(25,25)
+        self.expandedSmoothBtn.setMaximumSize(25,25)
 
     def expandSideMenu(self) -> None:                   # -- Expands the side menu
         self.colapsedMenu.hide()
@@ -146,8 +188,7 @@ class MainWindow(QMainWindow):
             except Exception as e:   
                 os.replace(os.path.join("temp_images", tempFile), os.path.join("temp_images", f"edited.{self.suffix}"))
 
-            pixmap: QPixmap = QPixmap(self.tempImage)
-            self.imageLabel.setPixmap(pixmap)
+            self.applyImage(self.tempImage)
         else:
             return
 
@@ -160,14 +201,31 @@ class MainWindow(QMainWindow):
             updatedImage = Image.open(self.tempImage).convert("L")  
             updatedImage.save(self.tempImage)
             updatedImage = updatedImage.toqpixmap()
+            self.imageEdited = True
         
         self.applyImage(updatedImage)
 
-    def applyImage(self, updatedImage) -> None:                       # -- Applies image to main label
-        pixmap = QPixmap(updatedImage)
-        self.imageLabel.setPixmap(pixmap)
+    def applyImage(self, img) -> None:                  # -- Applies image to main label
+        pixmap = QPixmap(img)
+        scaled = pixmap.scaled(self.labelWidth, self.labelHeight, Qt.AspectRatioMode.KeepAspectRatio)
+        self.imageLabel.setPixmap(scaled)
         
+    def initFilterMenu(self) -> None:                   # -- Initiates colapsed filter context menu
+        self.filterMenu: QWidget = QMenu()
+        self.filterMenu.addAction("Black/White")
+        self.filterMenu.addAction("two")
+        self.filterMenu.addAction("three")
+        self.filterMenu.hide()  
 
+    def openMenu(self, type):                           # -- Opens Filter Context Menu
+        if type == "filter":
+            self.filterMenu.show()
+            self.filterMenu.move(700, 691)  
+
+    def mousePressEvent(self, event):
+        x = event.position().x()
+        y = event.position().y()
+        
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
