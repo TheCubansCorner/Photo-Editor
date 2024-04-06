@@ -1,6 +1,10 @@
 #! python3, PyQt6, Pillow
 #! main.py - Image Editing program
 
+"""
+TODO: Adjust widget placement
+"""
+
 import sys, os
 
 from PyQt6.QtGui import QIcon, QPixmap
@@ -33,7 +37,7 @@ class Alter(QWidget):
         self.backBtn: QPushButton = QPushButton()
         self.brightnessBtn: QPushButton = QPushButton()
         self.cropBtn: QPushButton = QPushButton()
-        self.filterBtn: QPushButton = QPushButton()
+        self.mainFilterBtn: QPushButton = QPushButton()
 
         self.brightnessBackBtn: QPushButton = QPushButton()                     # - Brightness Options
         self.brightnessSlider: QSlider = QSlider(Qt.Orientation.Horizontal)
@@ -57,17 +61,18 @@ class Alter(QWidget):
         self.homeWidgetList: list = [self.editImgBtn, self.saveImgBtn, self.addImgBtn]
         self.brightnessWidgetList: list = [self.brightnessBackBtn, self.brightnessSlider]
         self.contrastWidgetsList: list = [self.contrastBackBtn, self.contrastSlider]
-        self.filterWidgetsList: list = [self.blackWhiteBtn, self.contrastBtn, self.filterBtn, self.filterBackBtn]
+        self.filterWidgetsList: list = [self.filterBackBtn, self.blackWhiteBtn, self.contrastBtn, self.mainFilterBtn]
         self.moreFiltersWidgetList: list = [
                                             self.backToFilterBtn, self.smoothBtn, self.embossBtn,
                                             self.blurBtn, self.sharpenBtn, self.contourBtn, self.detailBtn
                                             ]
         self.editOptionsWidgetList: list = [
                                             self.rotateLeftBtn, self.rotateRightBtn, self.backBtn,
-                                            self.brightnessBtn, self.cropBtn, self.filterBtn
+                                            self.brightnessBtn, self.cropBtn, self.filtersBtn
                                             ]
 
     def initConfigWidgets(self) -> None:            # -- Configures widgets (size, etc)
+        self.setFixedSize(500, 800)
         self.mainPicLabel.setPixmap(self.emptyPixmap)
 
         self.addImgBtn.setIconSize(QSize(50,50))
@@ -94,12 +99,12 @@ class Alter(QWidget):
         self.backBtn.setIcon(QIcon(os.path.join('icons', 'back-icon.png')))
         self.brightnessBtn.setIcon(QIcon(os.path.join('icons', 'brightness-icon.png')))
         self.cropBtn.setIcon(QIcon(os.path.join('icons', 'crop-icon.png')))
-        self.filterBtn.setIcon(QIcon(os.path.join('icons', 'filter-icon.png')))
+        self.mainFilterBtn.setIcon(QIcon(os.path.join('icons', 'filters-icon.png')))
         self.brightnessBackBtn.setIcon(QIcon(os.path.join('icons', 'back-icon.png')))
         self.blackWhiteBtn.setIcon(QIcon(os.path.join('icons', 'black-white-icon.png')))
         self.contrastBtn.setIcon(QIcon(os.path.join('icons', 'contrast-icon.png')))
-        self.filterBtn.setIcon(QIcon(os.path.join('icons', 'filters-icon.png')))
         self.filterBackBtn.setIcon(QIcon(os.path.join('icons', 'back-icon.png')))
+        self.filtersBtn.setIcon(QIcon(os.path.join('icons', 'filter-icon.png')))
         self.backToFilterBtn.setIcon(QIcon(os.path.join('icons', 'back-icon.png')))
         self.smoothBtn.setIcon(QIcon(os.path.join('icons', 'smooth-filter.png')))
         self.embossBtn.setIcon(QIcon(os.path.join('icons', 'emboss-icon.png')))
@@ -119,13 +124,13 @@ class Alter(QWidget):
         self.backBtn.setToolTip("Back to Home")
         self.brightnessBtn.setToolTip("Brightness")
         self.cropBtn.setToolTip("Crop")
-        self.filterBtn.setToolTip("Filter Options")
+        self.mainFilterBtn.setToolTip("Filter Options")
         self.brightnessBackBtn.setToolTip("Return to Edit")
         self.brightnessSlider.setToolTip("Brightness")
         self.filterBackBtn.setToolTip("Back to Edit")
         self.blackWhiteBtn.setToolTip("Black/White")
         self.contrastBtn.setToolTip("Contrast")
-        self.filterBtn.setToolTip("More Filters")
+        self.filtersBtn.setToolTip("More Filters")
         self.backToFilterBtn.setToolTip("Back to Main Filters")
         self.smoothBtn.setToolTip("Smooth")
         self.embossBtn.setToolTip("Emboss")
@@ -137,33 +142,79 @@ class Alter(QWidget):
         self.contrastBackBtn.setToolTip("Back to Filters")
 
     def initConfigConnections(self) -> None:        # -- Connects Widgets to functions
-        pass
+        self.editImgBtn.clicked.connect(self.openEditOptions)
+        self.backBtn.clicked.connect(self.backToHome)
+        self.filtersBtn.clicked.connect(self.openMainFilterOptions)
+        self.filterBackBtn.clicked.connect(self.backToEdit)
 
     def initLayout(self) -> None:                   # -- Applies Widgets to layouts
-        self.mainLayout: QVBoxLayout = QVBoxLayout()
-        self.imgNumberLayout: QHBoxLayout = QHBoxLayout()
-        self.rowTwoLayout: QHBoxLayout = QHBoxLayout()
-        self.rowThreeLayout: QHBoxLayout = QHBoxLayout()
-
-        self.rowTwoLayout.addWidget(self.mainPicLabel, Qt.AlignmentFlag.AlignCenter)    # - Home Page
-        self.rowThreeLayout.addWidget(self.editImgBtn)
-        self.rowThreeLayout.addWidget(self.addImgBtn)
-        self.rowThreeLayout.addWidget(self.saveImgBtn)
-
-        self.mainLayout.addLayout(self.rowTwoLayout)
-        self.mainLayout.addLayout(self.imgNumberLayout)
-        self.mainLayout.addLayout(self.rowThreeLayout)
-        self.setLayout(self.mainLayout)
-
         self.hideEditOptions()
         self.hideBrightnessOptions()
         self.hideMainFilterOptions()
         self.hideSecondaryFilterOptions()
         self.hideContrastOptions()
 
-    def initStyleSheets(self) -> None:
-        self.setStyleSheet("background-color: black;")
+        self.mainLayout: QVBoxLayout = QVBoxLayout()
+        self.rowTwoLayout: QHBoxLayout = QHBoxLayout()
+        self.rowThreeLayout: QHBoxLayout = QHBoxLayout()
 
+        self.rowTwoLayout.addWidget(self.mainPicLabel, Qt.AlignmentFlag.AlignCenter)        # - Home Page
+        self.rowThreeLayout.addWidget(self.editImgBtn)
+        self.rowThreeLayout.addWidget(self.addImgBtn)
+        self.rowThreeLayout.addWidget(self.saveImgBtn)
+
+        self.rowThreeLayout.addWidget(self.backBtn)                                         # - Edit Page
+        self.rowThreeLayout.addWidget(self.rotateLeftBtn)
+        self.rowThreeLayout.addWidget(self.brightnessBtn)
+        self.rowThreeLayout.addWidget(self.cropBtn)
+        self.rowThreeLayout.addWidget(self.mainFilterBtn)
+        self.rowThreeLayout.addWidget(self.rotateRightBtn)
+
+        self.rowThreeLayout.addWidget(self.filterBackBtn)                                   # - Main Filter Page
+        self.rowThreeLayout.addWidget(self.contrastBtn)
+        self.rowThreeLayout.addWidget(self.blackWhiteBtn)
+        self.rowThreeLayout.addWidget(self.filtersBtn)
+
+        self.rowThreeLayout.addWidget(self.backToFilterBtn)                                 # - Secondary Filter Page
+        self.rowThreeLayout.addWidget(self.smoothBtn)
+        self.rowThreeLayout.addWidget(self.embossBtn)
+        self.rowThreeLayout.addWidget(self.blurBtn)
+        self.rowThreeLayout.addWidget(self.sharpenBtn)
+        self.rowThreeLayout.addWidget(self.contourBtn)
+        self.rowThreeLayout.addWidget(self.detailBtn)
+
+        self.rowThreeLayout.addWidget(self.brightnessBackBtn)                               # - Brightness Page
+        self.rowThreeLayout.addWidget(self.brightnessSlider)
+
+        self.rowThreeLayout.addWidget(self.contrastBackBtn)                                 # - Contrast page
+        self.rowThreeLayout.addWidget(self.contrastSlider)
+
+        self.mainLayout.addLayout(self.rowTwoLayout)
+        self.mainLayout.addLayout(self.rowThreeLayout)
+        self.setLayout(self.mainLayout)    
+
+    def initStyleSheets(self) -> None:              # -- Initiates the application
+        self.setStyleSheet("""
+            QWidget {
+                    background : black;
+                    padding-top : 20px;
+                    }
+
+            QPushButton {
+                        color : white;
+                        background-color: rgba(0, 0, 0, 0)
+                        }
+
+            QLabel {
+                    color : white;
+                    border : 1px solid grey;
+                    padding-left : 13px;
+                    padding-right : 13px;
+                    padding-top : 13px;
+                    padding-bottom : 13px;
+                    }
+            """)
+        
     def hideHomeOptions(self) -> None:              # -- Hides Home Widgets
         for widg in self.homeWidgetList:
             widg.hide()
@@ -211,6 +262,22 @@ class Alter(QWidget):
     def showContrastOptions(self) -> None:          # -- Shows Contrast Widgets
         for widg in self.contrastWidgetsList:
             widg.show()
+
+    def backToHome(self) -> None:                   # -- Returns to main options           
+        self.hideEditOptions()
+        self.showHomeOptions()
+
+    def backToEdit(self) -> None:
+        self.hideMainFilterOptions()
+        self.showEditOptions()
+
+    def openEditOptions(self) -> None:              # -- Opens edit options
+        self.hideHomeOptions()
+        self.showEditOptions()
+
+    def openMainFilterOptions(self) -> None:        # -- Opens Main Filter Options
+        self.hideEditOptions()
+        self.showMainFilterOptions()
 
 
 if __name__ == "__main__":
