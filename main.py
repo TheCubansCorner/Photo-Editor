@@ -1,304 +1,220 @@
-#! python3
-#! main.py -- Basic image editor
+#! python3, PyQt6, Pillow
+#! main.py - Image Editing program
 
-import os, sys, shutil
+import sys, os
 
-from PIL import Image
-from PyQt6.QtGui import QIcon, QImage, QPixmap, QAction
-from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtWidgets import (
-    QApplication, QWidget, QLabel, QPushButton,
-    QMainWindow, QHBoxLayout, QGridLayout, QVBoxLayout,
-    QFileDialog, QSlider, QMenu
-)
+from PyQt6.QtGui import QIcon, QPixmap
+from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtWidgets import (QPushButton, QLabel, QApplication, QWidget, QSlider, QVBoxLayout, QHBoxLayout)
+from PIL import Image, ImageEnhance, ImageQt,  ImageFilter
 
-
-class MainWindow(QMainWindow):
-    def __init__(self):                                 # -- Initiates the application
+class Alter(QWidget):
+    def __init__(self) -> None:
         super().__init__()
-        self.currentImage: str = ""
-        self.tempEditedImage: str = ""
-        self.tempUneditedImage: str = ""
-        self.imageEdited: bool = False
-        self.blackWhiteActive: bool = False
-        self.currentMouseX: int = 0
-        self.currentMouseY: int = 0
+        self.emptyPixmap: QPixmap = QPixmap(os.path.join("icons", "blank.jpg"))
 
-        self.setWindowTitle("Image Editor")
-        self.setFixedSize(600, 800)
-        self.initWidget()
-        self.initLayout()
+        self.initUI()
+        self.initIcons()
         self.initConfigWidgets()
+        self.initToolTips()
         self.initConfigConnections()
         self.initStyleSheets()
-        self.widgetToolTips()
-        self.initFilterMenu()
-        self.setCentralWidget(self.mainContainer)
+        self.initLayout()
 
-        self.labelWidth: int = self.imageLabel.width()
-        self.labelHeight: int = self.imageLabel.height()
+    def initUI(self) -> None:               # -- Initiates Widgets
+        self.mainPicLabel: QWidget = QLabel()                                   # - Main Image Label
 
-    def initWidget(self) -> None:                       # -- Initiates main window widgets
-        self.mainContainer: QWidget = QWidget()                                                       # - QWidgets
-        self.colapsedMenu: QWidget = QWidget()
-        self.expandedMenu: QWidget = QWidget()
-        self.mainApplication: QWidget = QWidget()
+        self.editImgBtn: QPushButton = QPushButton()                            # - Home Options
+        self.saveImgBtn: QPushButton = QPushButton()
+        self.addImgBtn: QPushButton = QPushButton()
+
+        self.rotateRightBtn: QPushButton = QPushButton()                        # - Edit Options
+        self.rotateLeftBtn: QPushButton = QPushButton()
+        self.backBtn: QPushButton = QPushButton()
+        self.brightnessBtn: QPushButton = QPushButton()
+        self.cropBtn: QPushButton = QPushButton()
+        self.filterBtn: QPushButton = QPushButton()
+
+        self.brightnessBackBtn: QPushButton = QPushButton()                     # - Brightness Options
+        self.brightnessSlider: QSlider = QSlider(Qt.Orientation.Horizontal)
+
+        self.blackWhiteBtn: QPushButton = QPushButton()                         # - Main Filter Options
+        self.contrastBtn: QPushButton = QPushButton()
+        self.filtersBtn: QPushButton = QPushButton()
+        self.filterBackBtn: QPushButton = QPushButton()
+
+        self.backToFilterBtn: QPushButton = QPushButton()                       # - Secondary Filter Options
+        self.smoothBtn: QPushButton = QPushButton()
+        self.embossBtn: QPushButton = QPushButton()
+        self.blurBtn: QPushButton = QPushButton()
+        self.sharpenBtn: QPushButton = QPushButton()
+        self.contourBtn: QPushButton = QPushButton()
+        self.detailBtn: QPushButton = QPushButton()
+
+        self.contrastBackBtn: QPushButton = QPushButton()                       # - Contrast Options
+        self.contrastSlider: QSlider = QSlider(Qt.Orientation.Horizontal)
+
+        self.homeWidgetList: list = [self.editImgBtn, self.saveImgBtn, self.addImgBtn]
+        self.brightnessWidgetList: list = [self.brightnessBackBtn, self.brightnessSlider]
+        self.contrastWidgetsList: list = [self.contrastBackBtn, self.contrastSlider]
+        self.filterWidgetsList: list = [self.blackWhiteBtn, self.contrastBtn, self.filterBtn, self.filterBackBtn]
+        self.moreFiltersWidgetList: list = [
+                                            self.backToFilterBtn, self.smoothBtn, self.embossBtn,
+                                            self.blurBtn, self.sharpenBtn, self.contourBtn, self.detailBtn
+                                            ]
+        self.editOptionsWidgetList: list = [
+                                            self.rotateLeftBtn, self.rotateRightBtn, self.backBtn,
+                                            self.brightnessBtn, self.cropBtn, self.filterBtn
+                                            ]
+
+    def initConfigWidgets(self) -> None:            # -- Configures widgets (size, etc)
+        self.mainPicLabel.setPixmap(self.emptyPixmap)
+
+        self.addImgBtn.setIconSize(QSize(50,50))
+        self.embossBtn.setIconSize(QSize(25, 25))
+
+        self.brightnessSlider.setMaximum(10)
+        self.contrastSlider.setMaximum(10)
+
+        self.brightnessSlider.setMinimum(0)
+        self.contrastSlider.setMinimum(0)
+
+        self.brightnessSlider.setValue(2)
+        self.contrastSlider.setValue(2)
+
+        self.brightnessSlider.setTickPosition(QSlider.TickPosition.TicksBothSides)
+        self.contrastSlider.setTickPosition(QSlider.TickPosition.TicksBothSides)
         
-        # Colapsed Menu Buttons
-        self.colapsedMenuBtn: QWidget = QPushButton()                                                 # - QPushButtons Colapseed
-        self.colapsedLoadImageBtn: QWidget = QPushButton()
-        self.colapsedBrightnessBtn: QWidget = QPushButton()
-        self.colapsedContrastBtn: QWidget = QPushButton()
-        self.colapsedFiltersBtn: QWidget = QPushButton()  
-        self.colapsedRotationBtn: QWidget = QPushButton()
-        self.colapsedSaveBtn: QWidget = QPushButton()
-        
-        # Expanded menu Buttons
-        self.expandedMenuBtn: QWidget = QPushButton("Colapse")                                        # - QPushButton Expanded
-        self.expandedLoadImageBtn: QWidget = QPushButton("Load Image")
-        self.expandedFiltersBtn: QWidget = QPushButton("        Filters")
-        self.expandedBlackWhiteBtn: QWidget = QPushButton()
-        self.expandedSmoothBtn: QWidget = QPushButton() 
-        self.expandedSharpenBtn: QWidget = QPushButton()
-        self.expandedEmbossBtn: QWidget = QPushButton()
-        self.expandedRotateRightBtn: QWidget = QPushButton()
-        self.expandedRotateLeftBtn: QWidget = QPushButton()
-        self.expandedSaveBtn: QWidget = QPushButton("Save Image")
-        self.expandedEdgeBtn: QWidget = QPushButton()
-        self.expandedBlurBtn: QWidget = QPushButton()
-        self.expandedDetailBtn: QWidget = QPushButton()
-        self.expandedContourBtn: QWidget = QPushButton()
-        
-        self.expandedBrightnessSlide: QWidget = QSlider(Qt.Orientation.Horizontal)                   # - QSliders
-        self.expandedContrastSlide: QWidget = QSlider(Qt.Orientation.Horizontal)
+    def initIcons(self) -> None:                    # -- Applies Icons to Widgets
+        self.editImgBtn.setIcon(QIcon(os.path.join('icons', 'edit-icon.png')))
+        self.saveImgBtn.setIcon(QIcon(os.path.join('icons', 'save-icon.png')))
+        self.addImgBtn.setIcon(QIcon(os.path.join('icons', 'open-img-icon.png')))
+        self.rotateLeftBtn.setIcon(QIcon(os.path.join('icons', 'rotate-left.png')))
+        self.rotateRightBtn.setIcon(QIcon(os.path.join('icons', 'rotate-right.png')))
+        self.backBtn.setIcon(QIcon(os.path.join('icons', 'back-icon.png')))
+        self.brightnessBtn.setIcon(QIcon(os.path.join('icons', 'brightness-icon.png')))
+        self.cropBtn.setIcon(QIcon(os.path.join('icons', 'crop-icon.png')))
+        self.filterBtn.setIcon(QIcon(os.path.join('icons', 'filter-icon.png')))
+        self.brightnessBackBtn.setIcon(QIcon(os.path.join('icons', 'back-icon.png')))
+        self.blackWhiteBtn.setIcon(QIcon(os.path.join('icons', 'black-white-icon.png')))
+        self.contrastBtn.setIcon(QIcon(os.path.join('icons', 'contrast-icon.png')))
+        self.filterBtn.setIcon(QIcon(os.path.join('icons', 'filters-icon.png')))
+        self.filterBackBtn.setIcon(QIcon(os.path.join('icons', 'back-icon.png')))
+        self.backToFilterBtn.setIcon(QIcon(os.path.join('icons', 'back-icon.png')))
+        self.smoothBtn.setIcon(QIcon(os.path.join('icons', 'smooth-filter.png')))
+        self.embossBtn.setIcon(QIcon(os.path.join('icons', 'emboss-icon.png')))
+        self.blurBtn.setIcon(QIcon(os.path.join('icons', 'blur-icon.png')))
+        self.sharpenBtn.setIcon(QIcon(os.path.join('icons', 'sharpen-icon.png')))
+        self.contourBtn.setIcon(QIcon(os.path.join('icons', 'contour-icon.png')))
+        self.detailBtn.setIcon(QIcon(os.path.join('icons', 'detail-icon.png')))
+        self.contrastBackBtn.setIcon(QIcon(os.path.join('icons', 'back-icon.png')))
 
-        self.imageLabel: QWidget = QLabel()                                                           # - QLabels
-        self.expandedBrightnessLabel: QWidget = QLabel("Brightness")
-        self.expandedContrastLabel: QWidget = QLabel("Contrast")
+    def initToolTips(self) -> None:                 # -- initiates tooltips for Widgets
+        self.mainPicLabel.setToolTip("Main Image")
+        self.editImgBtn.setToolTip("Edit Options")
+        self.saveImgBtn.setToolTip("Save Image")
+        self.addImgBtn.setToolTip("Add a photo editor")
+        self.rotateRightBtn.setToolTip("Rotate Right")
+        self.rotateLeftBtn.setToolTip("Rotate Left")
+        self.backBtn.setToolTip("Back to Home")
+        self.brightnessBtn.setToolTip("Brightness")
+        self.cropBtn.setToolTip("Crop")
+        self.filterBtn.setToolTip("Filter Options")
+        self.brightnessBackBtn.setToolTip("Return to Edit")
+        self.brightnessSlider.setToolTip("Brightness")
+        self.filterBackBtn.setToolTip("Back to Edit")
+        self.blackWhiteBtn.setToolTip("Black/White")
+        self.contrastBtn.setToolTip("Contrast")
+        self.filterBtn.setToolTip("More Filters")
+        self.backToFilterBtn.setToolTip("Back to Main Filters")
+        self.smoothBtn.setToolTip("Smooth")
+        self.embossBtn.setToolTip("Emboss")
+        self.blurBtn.setToolTip("Blur")
+        self.sharpenBtn.setToolTip("Sharpen")
+        self.contourBtn.setToolTip("Contour")
+        self.detailBtn.setToolTip("Detail")
+        self.contrastSlider.setToolTip("Contrast")
+        self.contrastBackBtn.setToolTip("Back to Filters")
 
-    def initLayout(self) -> None:                       # -- Applies widgets to layout/sets main layout
-        self.mainContainer.layout = QHBoxLayout()       # - Main Layouts
-        self.colapsedMenu.layout = QGridLayout()
-        self.expandedMenu.layout = QGridLayout()
-        self.mainApplication.layout = QVBoxLayout()
+    def initConfigConnections(self) -> None:        # -- Connects Widgets to functions
+        pass
 
-        filtersLayout = QVBoxLayout()                   # - Filter Layouts
-        headerlayout = QHBoxLayout()
-        rowOneLayout = QHBoxLayout()
-        rowTwoLayout = QHBoxLayout()
+    def initLayout(self) -> None:                   # -- Applies Widgets to layouts
+        self.mainLayout: QVBoxLayout = QVBoxLayout()
+        self.imgNumberLayout: QHBoxLayout = QHBoxLayout()
+        self.rowTwoLayout: QHBoxLayout = QHBoxLayout()
+        self.rowThreeLayout: QHBoxLayout = QHBoxLayout()
 
-        brightnessLayout = QHBoxLayout()
-        contrastLayout = QHBoxLayout()
-        rotationLayout = QHBoxLayout()
+        self.rowTwoLayout.addWidget(self.mainPicLabel, Qt.AlignmentFlag.AlignCenter)    # - Home Page
+        self.rowThreeLayout.addWidget(self.editImgBtn)
+        self.rowThreeLayout.addWidget(self.addImgBtn)
+        self.rowThreeLayout.addWidget(self.saveImgBtn)
 
-        headerlayout.addWidget(self.expandedFiltersBtn)                                                         # - FIlter Menu
-        rowOneLayout.addWidget(self.expandedBlackWhiteBtn)
-        rowOneLayout.addWidget(self.expandedSmoothBtn)
-        rowOneLayout.addWidget(self.expandedSharpenBtn)
-        rowOneLayout.addWidget(self.expandedEmbossBtn)
-        rowTwoLayout.addWidget(self.expandedEdgeBtn)
-        rowTwoLayout.addWidget(self.expandedBlurBtn)
-        rowTwoLayout.addWidget(self.expandedDetailBtn)
-        rowTwoLayout.addWidget(self.expandedContourBtn)
-        filtersLayout.addLayout(headerlayout)
-        filtersLayout.addLayout(rowOneLayout)
-        filtersLayout.addLayout(rowTwoLayout)
+        self.mainLayout.addLayout(self.rowTwoLayout)
+        self.mainLayout.addLayout(self.imgNumberLayout)
+        self.mainLayout.addLayout(self.rowThreeLayout)
+        self.setLayout(self.mainLayout)
 
-        brightnessLayout.addWidget(self.expandedBrightnessLabel)                                                # - Brightness Menu
-        brightnessLayout.addWidget(self.expandedBrightnessSlide)
+        self.hideEditOptions()
+        self.hideBrightnessOptions()
+        self.hideMainFilterOptions()
+        self.hideSecondaryFilterOptions()
+        self.hideContrastOptions()
 
-        contrastLayout.addWidget(self.expandedContrastLabel)                                                    # - Contrast Menu
-        contrastLayout.addWidget(self.expandedContrastSlide)
-
-        rotationLayout.addWidget(self.expandedRotateLeftBtn)                                                    # - Rotation Menu
-        rotationLayout.addWidget(self.expandedRotateRightBtn)
-
-        self.colapsedMenu.layout.addWidget(self.colapsedMenuBtn, 0, 0, Qt.AlignmentFlag.AlignLeft)              # - Colapsed Tool Menu
-        self.colapsedMenu.layout.addWidget(self.colapsedLoadImageBtn, 1, 0, Qt.AlignmentFlag.AlignLeft)
-        self.colapsedMenu.layout.addWidget(self.colapsedSaveBtn, 2, 0, Qt.AlignmentFlag.AlignLeft)
-        self.colapsedMenu.layout.addWidget(self.colapsedFiltersBtn, 3, 0, Qt.AlignmentFlag.AlignLeft)  
-        self.colapsedMenu.layout.addWidget(self.colapsedBrightnessBtn, 4, 0, Qt.AlignmentFlag.AlignLeft)
-        self.colapsedMenu.layout.addWidget(self.colapsedContrastBtn, 5, 0, Qt.AlignmentFlag.AlignLeading)
-        self.colapsedMenu.layout.addWidget(self.colapsedRotationBtn, 6, 0, Qt.AlignmentFlag.AlignLeft)
-
-        self.expandedMenu.layout.addWidget(self.expandedMenuBtn, 0, 0, Qt.AlignmentFlag.AlignLeft)              # - Expanded Tool Menu
-        self.expandedMenu.layout.addWidget(self.expandedLoadImageBtn, 1, 0, Qt.AlignmentFlag.AlignLeft) 
-        self.expandedMenu.layout.addWidget(self.expandedSaveBtn, 2, 0, Qt.AlignmentFlag.AlignLeft)
-        self.expandedMenu.layout.addLayout(filtersLayout, 3, 0, Qt.AlignmentFlag.AlignLeft)
-        self.expandedMenu.layout.addLayout(brightnessLayout, 4, 0, Qt.AlignmentFlag.AlignLeft)
-        self.expandedMenu.layout.addLayout(contrastLayout, 5, 0, Qt.AlignmentFlag.AlignLeft)
-        self.expandedMenu.layout.addLayout(rotationLayout, 6, 0, Qt.AlignmentFlag.AlignLeft)
-
-        self.mainApplication.layout.addWidget(self.imageLabel, Qt.AlignmentFlag.AlignCenter)                    # - Main Layout
-
-        self.colapsedMenu.setLayout(self.colapsedMenu.layout)
-        self.expandedMenu.setLayout(self.expandedMenu.layout)
-        self.mainApplication.setLayout(self.mainApplication.layout)
-
-        self.mainContainer.layout.addWidget(self.colapsedMenu)
-        self.mainContainer.layout.addWidget(self.expandedMenu)
-        self.mainContainer.layout.addWidget(self.mainApplication)
-        
-        self.mainContainer.setLayout(self.mainContainer.layout) 
-
-    def initConfigWidgets(self) -> None:                # -- Configured widgets (size, width, etc)
-        self.expandedMenu.hide()
-
-        self.imageLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)                                   # - Alignments
-
-        pixmap = QPixmap(os.path.join("icons", "blank.jpg"))                                         # - Setting Initial Pixmap
-        self.imageLabel.setPixmap(pixmap)
-
-        self.colapsedMenuBtn.setIcon(QIcon(os.path.join("icons", "colapsed-menu.png")))              # - Setting Icons
-        self.colapsedLoadImageBtn.setIcon(QIcon(os.path.join("icons", "open-img-icon.png")))
-        self.colapsedFiltersBtn.setIcon(QIcon(os.path.join("icons", "filters-icon.png")))     
-        self.colapsedBrightnessBtn.setIcon(QIcon(os.path.join("icons", "brightness-icon.png")))
-        self.colapsedContrastBtn.setIcon(QIcon(os.path.join("icons", "contrast-icon.png")))
-        self.colapsedRotationBtn.setIcon(QIcon(os.path.join("icons", "rotate-right.png")))
-        self.colapsedSaveBtn.setIcon(QIcon(os.path.join("icons", "save-icon.png")))
-        
-        self.expandedMenuBtn.setIcon(QIcon(os.path.join("icons", "expanded-menu.png")))
-        self.expandedLoadImageBtn.setIcon(QIcon(os.path.join("icons", "open-img-icon.png")))
-        self.expandedBlackWhiteBtn.setIcon(QIcon(os.path.join("icons", "black-white-icon.png")))
-        self.expandedFiltersBtn.setIcon(QIcon(os.path.join("icons", "filters-icon.png")))
-        self.expandedSmoothBtn.setIcon(QIcon(os.path.join("icons", "smooth-filter.png")))
-        self.expandedSharpenBtn.setIcon(QIcon(os.path.join("icons", "sharpen-icon.png")))
-        self.expandedEmbossBtn.setIcon(QIcon(os.path.join("icons", "emboss-icon.png")))
-        self.expandedSaveBtn.setIcon(QIcon(os.path.join("icons", "save-icon.png")))
-        self.expandedRotateRightBtn.setIcon(QIcon(os.path.join("icons", "rotate-right.png")))
-        self.expandedRotateLeftBtn.setIcon(QIcon(os.path.join("icons", "rotate-left.png")))
-        self.expandedEdgeBtn.setIcon(QIcon(os.path.join("icons", "edge-icon.png")))
-        self.expandedBlurBtn.setIcon(QIcon(os.path.join("icons", "blur-icon.png")))
-        self.expandedDetailBtn.setIcon(QIcon(os.path.join("icons", "detail-icon.png")))
-        self.expandedContourBtn.setIcon(QIcon(os.path.join("icons", "contour-icon.png")))
-
-
-        self.mainContainer.layout.setContentsMargins(0, 0, 0, 0)                                    # - Content Margins
-        self.colapsedMenuBtn.setContentsMargins(0,0,0,0)
-        self.colapsedFiltersBtn.setContentsMargins(0,0,0,0)
-        self.colapsedBrightnessBtn.setContentsMargins(0,0,0,0)
-        self.colapsedMenu.setContentsMargins(0, 0, 0, 0)
-
-        self.mainApplication.setMaximumHeight(self.height())                                        # - Max Size
-        self.colapsedMenu.setMaximumWidth(40)
-        self.expandedMenu.setMaximumWidth(150)
-        self.expandedMenu.setMinimumWidth(150)
-        self.expandedBlackWhiteBtn.setMaximumSize(25,25)                                        
-        self.expandedSmoothBtn.setMaximumSize(25,25)
-        self.expandedBlurBtn.setMaximumSize(25,25)
-        self.expandedDetailBtn.setMaximumSize(25,25)
-        self.expandedEdgeBtn.setMaximumSize(25,25)
-
-    def initConfigConnections(self) -> None:            # -- Configures connections between buttons and functions
-        self.colapsedMenuBtn.clicked.connect(self.expandSideMenu)
-        self.expandedMenuBtn.clicked.connect(self.colapseSideMenu)
-        self.colapsedLoadImageBtn.clicked.connect(self.openImageDialog)
-        self.expandedLoadImageBtn.clicked.connect(self.openImageDialog)
-        self.expandedBlackWhiteBtn.clicked.connect(self.blackAndWhite)
-        self.colapsedFiltersBtn.clicked.connect(lambda: self.openMenu('filter'))
-
-    def initStyleSheets(self) -> None:                  # -- Applies css stylesheets/incode styles to applicaiton
-        self.colapsedMenu.setStyleSheet("background-color: darkgrey;")
-        self.expandedMenu.setStyleSheet("background-color: darkgrey;")
-        self.mainApplication.setStyleSheet("background-color: black; color: white;")
+    def initStyleSheets(self) -> None:
         self.setStyleSheet("background-color: black;")
 
-    def widgetToolTips(self) -> None:                   # -- Sets up widget hover tool tips
-        self.colapsedMenuBtn.setToolTip("Expand Menu")
-        self.colapsedBrightnessBtn.setToolTip("Brightness")
-        self.colapsedContrastBtn.setToolTip("Contrast")
-        self.colapsedLoadImageBtn.setToolTip("Load Image")
-        self.colapsedFiltersBtn.setToolTip("Filters")
-        self.colapsedRotationBtn.setToolTip("Rotation")
-        self.colapsedSaveBtn.setToolTip("Save Image")
+    def hideHomeOptions(self) -> None:              # -- Hides Home Widgets
+        for widg in self.homeWidgetList:
+            widg.hide()
 
-        self.expandedMenuBtn.setToolTip("Colapse Menu")
-        self.expandedLoadImageBtn.setToolTip("Load Image") 
-        self.expandedBlackWhiteBtn.setToolTip("Black/White")
-        self.expandedSmoothBtn.setToolTip("Smooth")
-        self.expandedSharpenBtn.setToolTip("Sharpen")
-        self.expandedEmbossBtn.setToolTip("Emboss")    
-        self.expandedRotateLeftBtn.setToolTip("Rotate Left")
-        self.expandedRotateRightBtn.setToolTip("Rotate Right") 
-        self.expandedSaveBtn.setToolTip("Save Image")
-        self.expandedFiltersBtn.setToolTip("Filters")
-        self.expandedBrightnessLabel.setToolTip("Brightness")
-        self.expandedContrastLabel.setToolTip("Contrast")
-        self.expandedEdgeBtn.setToolTip("Edge Enhance")
-        self.expandedBlurBtn.setToolTip("Blur")
-        self.expandedDetailBtn.setToolTip("Detail Image")
-        self.expandedContourBtn.setToolTip("Contour")
+    def showHomeOptions(self) -> None:              # -- Show Home Widgets
+        for widg in self.homeWidgetList:
+            widg.show()
 
-    def expandSideMenu(self) -> None:                   # -- Expands the side menu
-        self.colapsedMenu.hide()
-        self.expandedMenu.show()
+    def hideEditOptions(self) -> None:              # -- Hides edit widgets
+        for widg in self.editOptionsWidgetList:
+            widg.hide()
 
-    def colapseSideMenu(self) -> None:                  # -- Colapses Side menu
-        self.expandedMenu.hide()
-        self.colapsedMenu.show()
+    def showEditOptions(self) -> None:              # -- Shows edit widgets
+        for widg in self.editOptionsWidgetList:
+            widg.show()
 
-    def openImageDialog(self) -> None:                  # -- Opens file dialogue to load images
-        try:
-            image_to_add: QWidget = QFileDialog.getOpenFileName(self, 'Open File', 'c:\\')[0]
-            tempFile: str = os.path.split(image_to_add)[-1]
-            self.suffix: str = tempFile.split(".")[-1]
-        except Exception as e:
-            image_to_add: bool = False
+    def hideBrightnessOptions(self) -> None:        # -- Hides Brightness Widgets
+        for widg in self.brightnessWidgetList:
+            widg.hide()
 
-        if image_to_add:
-            self.currentImage: str = image_to_add
-            self.tempImage: str = os.path.join("temp_images", f"edited.{self.suffix}")
+    def showBrightnessOptions(self) -> None:        # -- Shows Brightness WIdgets
+        for widg in self.brightnessWidgetList:
+            widg.show()
 
-            shutil.copy(self.currentImage, "temp_images")
+    def hideMainFilterOptions(self) -> None:        # -- Hides main filter Widgets
+        for widg in self.filterWidgetsList:
+            widg.hide()
 
-            try:
-                os.rename(os.path.join("temp_images", tempFile), os.path.join("temp_images", f"edited.{self.suffix}"))
-            except Exception as e:   
-                os.replace(os.path.join("temp_images", tempFile), os.path.join("temp_images", f"edited.{self.suffix}"))
+    def showMainFilterOptions(self) -> None:        # -- Shows main filter Widgets
+        for widg in self.filterWidgetsList:
+            widg.show()
 
-            self.applyImage(self.tempImage)
-        else:
-            return
+    def hideSecondaryFilterOptions(self) -> None:   # -- Hides Secondary Filter Widgets
+        for widg in self.moreFiltersWidgetList:
+            widg.hide()
 
-    def blackAndWhite(self) -> None:                    # -- Changes current image to black and white
-        if self.blackWhiteActive:
-            self.blackWhiteActive = False
-            updatedImage = self.currentImage
-        else:
-            self.blackWhiteActive = True
-            updatedImage = Image.open(self.tempImage).convert("L")  
-            updatedImage.save(self.tempImage)
-            updatedImage = updatedImage.toqpixmap()
-            self.imageEdited = True
-        
-        self.applyImage(updatedImage)
+    def showSecondaryFilterOptions(self) -> None:   # -- Shows secondary filter widgets
+        for widg in self.moreFiltersWidgetList:
+            widg.show()
 
-    def applyImage(self, img) -> None:                  # -- Applies image to main label
-        pixmap = QPixmap(img)
-        scaled = pixmap.scaled(self.labelWidth, self.labelHeight, Qt.AspectRatioMode.KeepAspectRatio)
-        self.imageLabel.setPixmap(scaled)
-        
-    def initFilterMenu(self) -> None:                   # -- Initiates colapsed filter context menu
-        self.filterMenu: QWidget = QMenu()
-        self.filterMenu.addAction("Black/White")
-        self.filterMenu.addAction("two")
-        self.filterMenu.addAction("three")
-        
-        self.filterMenu.hide()  
+    def hideContrastOptions(self) -> None:          # -- Hides Contrast Widgets
+        for widg in self.contrastWidgetsList:
+            widg.hide()
 
-    def openMenu(self, type):                           # -- Opens Filter Context Menu
-        if type == "filter":
-            self.filterMenu.show()
-            xy = self.colapsedFiltersBtn.mapToGlobal(self.colapsedFiltersBtn.pos())
-            self.filterMenu.move(xy)
+    def showContrastOptions(self) -> None:          # -- Shows Contrast Widgets
+        for widg in self.contrastWidgetsList:
+            widg.show()
 
-    def mousePressEvent(self, event):
-        x = event.position().x()
-        y = event.position().y()
-        
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    mainWindow: QWidget = MainWindow()
-    mainWindow.show()
+    alter: QWidget = Alter()
+    alter.show()
     sys.exit(app.exec())
