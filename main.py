@@ -3,13 +3,17 @@
 
 """
 TODO: Adjust widget placement
+TODO: Fix more filters button placement as shows at begining of layout instead of the end
 """
 
 import sys, os
 
 from PyQt6.QtGui import QIcon, QPixmap
 from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtWidgets import (QPushButton, QLabel, QApplication, QWidget, QSlider, QVBoxLayout, QHBoxLayout)
+from PyQt6.QtWidgets import (
+                            QPushButton, QLabel, QApplication, QWidget,
+                            QSlider, QVBoxLayout, QHBoxLayout, QFileDialog
+                            )
 from PIL import Image, ImageEnhance, ImageQt,  ImageFilter
 
 class Alter(QWidget):
@@ -146,6 +150,12 @@ class Alter(QWidget):
         self.backBtn.clicked.connect(self.backToHome)
         self.filtersBtn.clicked.connect(self.openMainFilterOptions)
         self.filterBackBtn.clicked.connect(self.backToEdit)
+        self.mainFilterBtn.clicked.connect(self.openSecondaryFilterOptions)
+        self.backToFilterBtn.clicked.connect(self.backToMainFilters)
+        self.brightnessBtn.clicked.connect(self.openBrightnessOptions)
+        self.brightnessBackBtn.clicked.connect(self.brightBackToEdit)
+        self.contrastBtn.clicked.connect(self.openContrastOptions)
+        self.contrastBackBtn.clicked.connect(self.contrastBackToEdit)
 
     def initLayout(self) -> None:                   # -- Applies Widgets to layouts
         self.hideEditOptions()
@@ -267,9 +277,21 @@ class Alter(QWidget):
         self.hideEditOptions()
         self.showHomeOptions()
 
-    def backToEdit(self) -> None:
+    def backToEdit(self) -> None:                   # -- Returns to Edit Options
         self.hideMainFilterOptions()
         self.showEditOptions()
+
+    def backToMainFilters(self) -> None:            # -- Returns to main filter Options
+        self.hideSecondaryFilterOptions()
+        self.showMainFilterOptions()
+
+    def brightBackToEdit(self) -> None:             # -- Returns to edit options from Brightness Slider
+        self.hideBrightnessOptions()
+        self.showEditOptions()
+
+    def contrastBackToEdit(self) -> None:           # -- Returns to edit options from Contrast Slider
+        self.hideContrastOptions()
+        self.showMainFilterOptions()
 
     def openEditOptions(self) -> None:              # -- Opens edit options
         self.hideHomeOptions()
@@ -279,6 +301,23 @@ class Alter(QWidget):
         self.hideEditOptions()
         self.showMainFilterOptions()
 
+    def openSecondaryFilterOptions(self) -> None:   # -- Opens Secondary FIlter options
+        self.hideMainFilterOptions()
+        self.showSecondaryFilterOptions()
+    
+    def openBrightnessOptions(self) -> None:        # -- Opens Brightness slider option
+        self.hideEditOptions()
+        self.showBrightnessOptions()
+
+    def openContrastOptions(self) -> None:          # -- Opens Contrast slider option
+        self.hideMainFilterOptions()
+        self.showContrastOptions()
+
+    def openMainImage(self) -> None:                # -- Opens main image to edit
+        imageToOpen: str = QFileDialog.getOpenFileName()
+
+    def saveMainImage(self) -> None:                # -- Saves edited image
+        pass
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
