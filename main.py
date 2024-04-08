@@ -8,29 +8,34 @@ TODO: Fix more filters button placement as shows at begining of layout instead o
 
 import sys, os
 
-from PyQt6.QtGui import QIcon, QPixmap
+from PIL import Image, ImageEnhance, ImageQt,  ImageFilter
+from PyQt6.QtGui import QIcon, QPixmap, QImage
 from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtWidgets import (
                             QPushButton, QLabel, QApplication, QWidget,
                             QSlider, QVBoxLayout, QHBoxLayout, QFileDialog
                             )
-from PIL import Image, ImageEnhance, ImageQt,  ImageFilter
+
 
 class Alter(QWidget):
     def __init__(self) -> None:
         super().__init__()
-        self.emptyPixmap: QPixmap = QPixmap(os.path.join("icons", "blank.jpg"))
+        self.activeImg: Image = None
+        self.activeImageFile: str = os.path.join("icons", "blank.jpg")
+        self.qImage: QImage = None
+        self.pixmap: QPixmap = None
 
         self.initUI()
+        self.initLayout()
         self.initIcons()
         self.initConfigWidgets()
         self.initToolTips()
         self.initConfigConnections()
         self.initStyleSheets()
-        self.initLayout()
+        
 
     def initUI(self) -> None:               # -- Initiates Widgets
-        self.mainPicLabel: QWidget = QLabel()                                   # - Main Image Label
+        self.mainPicLabel: QLabel = QLabel()                                   # - Main Image Label
 
         self.editImgBtn: QPushButton = QPushButton()                            # - Home Options
         self.saveImgBtn: QPushButton = QPushButton()
@@ -76,8 +81,13 @@ class Alter(QWidget):
                                             ]
 
     def initConfigWidgets(self) -> None:            # -- Configures widgets (size, etc)
-        self.setFixedSize(500, 800)
-        self.mainPicLabel.setPixmap(self.emptyPixmap)
+        self.showMaximized()
+        self.setFixedSize(self.width(), self.height())
+
+        self.mainLayout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.mainPicLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.mainPicLabel.setPixmap(QPixmap(self.activeImageFile))
 
         self.addImgBtn.setIconSize(QSize(50,50))
         self.embossBtn.setIconSize(QSize(25, 25))
@@ -156,6 +166,9 @@ class Alter(QWidget):
         self.brightnessBackBtn.clicked.connect(self.brightBackToEdit)
         self.contrastBtn.clicked.connect(self.openContrastOptions)
         self.contrastBackBtn.clicked.connect(self.contrastBackToEdit)
+        self.addImgBtn.clicked.connect(self.openMainImage)
+        self.rotateRightBtn.clicked.connect(lambda: self.rotateImage("right"))
+        self.rotateLeftBtn.clicked.connect(self.rotateImage)
 
     def initLayout(self) -> None:                   # -- Applies Widgets to layouts
         self.hideEditOptions()
@@ -199,7 +212,7 @@ class Alter(QWidget):
         self.rowThreeLayout.addWidget(self.contrastBackBtn)                                 # - Contrast page
         self.rowThreeLayout.addWidget(self.contrastSlider)
 
-        self.mainLayout.addLayout(self.rowTwoLayout)
+        self.mainLayout.addLayout(self.rowTwoLayout, Qt.AlignmentFlag.AlignCenter)
         self.mainLayout.addLayout(self.rowThreeLayout)
         self.setLayout(self.mainLayout)    
 
@@ -314,10 +327,57 @@ class Alter(QWidget):
         self.showContrastOptions()
 
     def openMainImage(self) -> None:                # -- Opens main image to edit
-        imageToOpen: str = QFileDialog.getOpenFileName()
+        try:
+            imageToAdd = QFileDialog.getOpenFileName(self, "Open File")[0]
+        except Exception as e:
+            errorMessage: str = e
+            imageToAdd: bool = False
+
+        if imageToAdd:
+            self.activeImgFile = imageToAdd
+            self.activeImg: Image = Image.open(self.activeImgFile)
+            self.qImage: QImage = self.activeImg.toqimage()
+            self.pixmap = QPixmap.fromImage(self.qImage)
+            self.applyImage()
+        else:
+            self.error: QWidget = QWidget()
+            self.errorLabel: QLabel = QLabel("Somthing went wrong")
+            okBtn: QPushButton = QPushButton("OK")
+            self.error.layout = QVBoxLayout()
+            
+            okBtn.clicked.connect(self.error.close)
+            self.error.layout.addWidget(self.errorLabel)
+            self.error.layout.addWidget(okBtn)
+            self.error.setLayout(self.error.layout)
+            self.error.show()
 
     def saveMainImage(self) -> None:                # -- Saves edited image
         pass
+
+    def rotateImage(self, direction = None) -> None:             # -- Rotates the current image 90 degrees
+        try:
+            if direction == "right":
+                self.activeImg: Image = self.activeImg.rotate(-90)
+                self.qImage = self.activeImg.toqimage()
+                self.pixmap = self.pixmap.fromImage(self.qImage)
+                self.applyImage()
+            else:
+                self.activeImg: Image = self.activeImg.rotate(90)
+                self.qImage = self.activeImg.toqimage()
+                self.pixmap = self.pixmap.fromImage(self.qImage)
+                self.applyImage()
+
+        except Exception as e:
+            print(e)
+
+    def blackWhiteMode(self) -> None:               # -- Changes image to black and white
+        pass
+
+    def applyImage(self) -> None:                   # -- Apply Image to main QLabel
+        scaled: QPixmap = self.pixmap.scaled(500, 800, Qt.AspectRatioMode.KeepAspectRatioByExpanding)
+        self.mainPicLabel.setPixmap(scaled)
+
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
