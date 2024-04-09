@@ -3,7 +3,7 @@
 
 """
 TODO: Adjust widget placement
-TODO: Fix more filters button placement as shows at begining of layout instead of the end
+TODO: Fix more filters button placement as shows at beginning of layout instead of the end
 """
 
 import sys, os
@@ -27,6 +27,7 @@ class Alter(QWidget):
         self.pixmap: QPixmap = None
         self.currentRotation: int = 0
         self.currentContrast: int = 0
+        self.currentBrightness: int = 0
         self.blackWhiteOn: bool = False
         self.embossOn: bool = False
         self.smoothOn: bool = False
@@ -185,6 +186,9 @@ class Alter(QWidget):
         self.sharpenBtn.clicked.connect(self.sharpenMode)
         self.contourBtn.clicked.connect(self.contourMode)
         self.detailBtn.clicked.connect(self.detailMode)
+        self.brightnessSlider.valueChanged.connect(self.brightnessMode)
+        self.contrastSlider.valueChanged.connect(self.contrastMode)
+
 
     def initLayout(self) -> None:                   # -- Applies Widgets to layouts
         self.hideEditOptions()
@@ -367,6 +371,8 @@ class Alter(QWidget):
             self.error.setLayout(self.error.layout)
             self.error.show()
 
+        self.editedImg = self.activeImg
+
     def saveMainImage(self) -> None:                # -- Saves edited image
         pass
 
@@ -440,6 +446,22 @@ class Alter(QWidget):
             self.detailOn = True
 
         self.currentImageSettings()
+
+    def brightnessMode(self) -> None:               # -- Increases/decreases brightness on main Image in QLabel
+        enhancer = ImageEnhance.Brightness(self.editedImg)
+        self.currentBrightness = self.brightnessSlider.value() / 8
+        imgOutput = enhancer.enhance(self.currentBrightness)
+        self.qImage = imgOutput.toqimage()
+        self.pixmap = QPixmap.fromImage(self.qImage)
+        self.applyImage()
+
+    def contrastMode(self) -> None:                 # -- Increase/Decrease Contrast on main Image in QLabel
+        enhancer = ImageEnhance.Contrast(self.editedImg)
+        self.currentContrast = self.contrastSlider.value() - 0.5
+        imgOutput = enhancer.enhance(self.currentContrast)
+        self.qImage = imgOutput.toqimage()
+        self.pixmap = QPixmap.fromImage(self.qImage)
+        self.applyImage()
 
     def applyImage(self) -> None:                   # -- Apply Image to main QLabel
         scaled: QPixmap = self.pixmap.scaled(500, 800, Qt.AspectRatioMode.KeepAspectRatioByExpanding)
