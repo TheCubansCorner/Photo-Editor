@@ -21,9 +21,19 @@ class Alter(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self.activeImg: Image = None
+        self.editedImg: Image = None
         self.activeImageFile: str = os.path.join("icons", "blank.jpg")
         self.qImage: QImage = None
         self.pixmap: QPixmap = None
+        self.currentRotation: int = 0
+        self.currentContrast: int = 0
+        self.blackWhiteOn: bool = False
+        self.embossOn: bool = False
+        self.smoothOn: bool = False
+        self.blurOn: bool = False
+        self.sharpenON: bool = False
+        self.contourOn: bool = False
+        self.detailOn: bool = False
 
         self.initUI()
         self.initLayout()
@@ -31,8 +41,7 @@ class Alter(QWidget):
         self.initConfigWidgets()
         self.initToolTips()
         self.initConfigConnections()
-        self.initStyleSheets()
-        
+        self.initStyleSheets()    
 
     def initUI(self) -> None:               # -- Initiates Widgets
         self.mainPicLabel: QLabel = QLabel()                                   # - Main Image Label
@@ -169,6 +178,13 @@ class Alter(QWidget):
         self.addImgBtn.clicked.connect(self.openMainImage)
         self.rotateRightBtn.clicked.connect(lambda: self.rotateImage("right"))
         self.rotateLeftBtn.clicked.connect(self.rotateImage)
+        self.blackWhiteBtn.clicked.connect(self.blackWhiteMode)
+        self.embossBtn.clicked.connect(self.embossMode)
+        self.smoothBtn.clicked.connect(self.smoothMode)
+        self.blurBtn.clicked.connect(self.blurMode)
+        self.sharpenBtn.clicked.connect(self.sharpenMode)
+        self.contourBtn.clicked.connect(self.contourMode)
+        self.detailBtn.clicked.connect(self.detailMode)
 
     def initLayout(self) -> None:                   # -- Applies Widgets to layouts
         self.hideEditOptions()
@@ -356,27 +372,108 @@ class Alter(QWidget):
 
     def rotateImage(self, direction = None) -> None:             # -- Rotates the current image 90 degrees
         try:
+            if self.currentRotation == -360 or self.currentRotation == 360:
+                    self.currentRotation = 0
+                    
             if direction == "right":
-                self.activeImg: Image = self.activeImg.rotate(-90)
-                self.qImage = self.activeImg.toqimage()
-                self.pixmap = self.pixmap.fromImage(self.qImage)
-                self.applyImage()
+                self.currentRotation += -90
             else:
-                self.activeImg: Image = self.activeImg.rotate(90)
-                self.qImage = self.activeImg.toqimage()
-                self.pixmap = self.pixmap.fromImage(self.qImage)
-                self.applyImage()
-
+                self.currentRotation += 90
+            
+            self.currentImageSettings()
+                
         except Exception as e:
             print(e)
 
     def blackWhiteMode(self) -> None:               # -- Changes image to black and white
-        pass
+        if self.blackWhiteOn:
+            self.blackWhiteOn = False
+        else:
+            self.blackWhiteOn = True
+        
+        self.currentImageSettings()
+
+    def embossMode(self) -> None:                   # -- Applies Emboss Filter to Image in main Qlabel
+        if self.embossOn:
+            self.embossOn = False
+        else:
+            self.embossOn = True
+
+        self.currentImageSettings()
+
+    def smoothMode(self) -> None:                   # -- Applies Smooth FIlter to main Qlabel
+        if self.smoothOn:
+            self.smoothOn = False
+        else:
+            self.smoothOn = True
+
+        self.currentImageSettings()
+        
+    def blurMode(self) -> None:                     # -- Applies Blur filter to main Image Qlabel
+        if self.blurOn:
+            self.blurOn = False
+        else:
+            self.blurOn = True
+        
+        self.currentImageSettings()
+
+    def sharpenMode(self) -> None:                  # -- Applies sharpen filter to main image in QLabel
+        if self.sharpenON:
+            self.sharpenON = False
+        else:
+            self.sharpenON = True
+
+        self.currentImageSettings()
+
+    def contourMode(self) -> None:                  # -- Applies Contour Filter to the main image in QLabel
+        if self.contourOn:
+            self.contourOn = False
+        else:
+            self.contourOn = True
+
+        self.currentImageSettings()
+
+    def detailMode(self) -> None:                   # -- Apply Detail filter to main Image in Qlabel
+        if self.detailOn:
+            self.detailOn = False
+        else:
+            self.detailOn = True
+
+        self.currentImageSettings()
 
     def applyImage(self) -> None:                   # -- Apply Image to main QLabel
         scaled: QPixmap = self.pixmap.scaled(500, 800, Qt.AspectRatioMode.KeepAspectRatioByExpanding)
         self.mainPicLabel.setPixmap(scaled)
 
+    def currentImageSettings(self) -> None:         # -- Applies active image settings to main Image in QLabel
+        self.editedImg: Image = self.activeImg
+
+        if self.blackWhiteOn:
+            self.editedImg = self.editedImg.convert('L')
+
+        if self.sharpenON:
+            self.editedImg = self.editedImg.filter(ImageFilter.SHARPEN)
+
+        if self.embossOn:
+            self.editedImg = self.editedImg.filter(ImageFilter.EMBOSS)
+
+        if self.smoothOn:
+            self.editedImg = self.editedImg.filter(ImageFilter.SMOOTH_MORE)
+
+        if self.blurOn:
+            self.editedImg = self.editedImg.filter(ImageFilter.BLUR)
+
+        if self.contourOn:
+            self.editedImg = self.editedImg.filter(ImageFilter.CONTOUR)
+
+        if self.detailOn:
+            self.editedImg = self.editedImg.filter(ImageFilter.DETAIL)
+
+        self.editedImg = self.editedImg.rotate(self.currentRotation)
+        self.qImage = self.editedImg.toqimage()
+        self.pixmap = QPixmap.fromImage(self.qImage)
+
+        self.applyImage()
 
 
 if __name__ == "__main__":
